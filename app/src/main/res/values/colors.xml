@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="red_main">#F44336</color>
+    <color name="light_red">#FFEBEE</color>
+    <color name="grey_text">#757575</color>
+    
+    <color name="fire_color">#F44336</color>
+    <color name="medical_color">#E91E63</color>
+    <color name="crime_color">#673AB7</color>
+    <color name="disaster_color">#FF9800</color>
+    <color name="accident_color">#795548</color>
+
+    <color name="fire_bg">#FFF5F5</color>
+    <color name="medical_bg">#FFF0F6</color>
+    <color name="crime_bg">#F5F3FF</color>
+    <color name="disaster_bg">#FFFBEB</color>
+    <color name="accident_bg">#FFF7ED</color>
+</resources>
