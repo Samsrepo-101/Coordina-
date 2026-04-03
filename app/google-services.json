@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "31950071152",
+    "project_id": "coordina-cf71b",
+    "storage_bucket": "coordina-cf71b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:31950071152:android:1ab2a2b01fc248311f1bb5",
+        "android_client_info": {
+          "package_name": "com.example.coordinaresponder"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "31950071152-jqqo4kt2jamusbaktfr2ehm98d1kklud.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCy5GEo8W5CvNvzbiYmK3fmGzxT2ZL-FnA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "31950071152-jqqo4kt2jamusbaktfr2ehm98d1kklud.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
