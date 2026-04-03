@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.example.coordinaresponder" />
+                  <option name="mobileSdkAppId" value="1:31950071152:android:1ab2a2b01fc248311f1bb5" />
+                  <option name="projectId" value="coordina-cf71b" />
+                  <option name="projectNumber" value="31950071152" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

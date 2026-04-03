@@ -7,7 +7,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import androidx.fragment.app.Fragment;
 
 public class EmergencyFormActivity extends AppCompatActivity implements SelectTypeFragment.OnTypeSelectedListener {
 
@@ -24,10 +23,8 @@ public class EmergencyFormActivity extends AppCompatActivity implements SelectTy
         });
 
         if (savedInstanceState == null) {
-            SelectTypeFragment fragment = new SelectTypeFragment();
-            fragment.setOnTypeSelectedListener(this);
             getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container, fragment)
+                    .replace(R.id.fragment_container, new SelectTypeFragment())
                     .commit();
         }
 
@@ -49,9 +46,14 @@ public class EmergencyFormActivity extends AppCompatActivity implements SelectTy
 
     @Override
     public void onTypeSelected(String type) {
-        FillDetailsFragment detailsFragment = FillDetailsFragment.newInstance(type);
         getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, detailsFragment)
+                .setCustomAnimations(
+                    android.R.anim.fade_in, 
+                    android.R.anim.fade_out, 
+                    android.R.anim.fade_in, 
+                    android.R.anim.fade_out
+                )
+                .replace(R.id.fragment_container, FillDetailsFragment.newInstance(type))
                 .addToBackStack(null)
                 .commit();
     }

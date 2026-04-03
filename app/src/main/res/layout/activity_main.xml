@@ -37,14 +37,35 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Animated Pulse Background -->
+    <!-- Ripple/Glow Layers -->
     <View
-        android:id="@+id/pulse_view"
-        android:layout_width="240dp"
-        android:layout_height="240dp"
-        android:background="@drawable/bg_circle_red"
-        android:backgroundTint="@color/red_main"
-        android:alpha="0.3"
+        android:id="@+id/pulse_view_1"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:background="@drawable/bg_ripple_glow"
+        android:alpha="0"
+        app:layout_constraintBottom_toBottomOf="@id/sos_button"
+        app:layout_constraintEnd_toEndOf="@id/sos_button"
+        app:layout_constraintStart_toStartOf="@id/sos_button"
+        app:layout_constraintTop_toTopOf="@id/sos_button" />
+
+    <View
+        android:id="@+id/pulse_view_2"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:background="@drawable/bg_ripple_glow"
+        android:alpha="0"
+        app:layout_constraintBottom_toBottomOf="@id/sos_button"
+        app:layout_constraintEnd_toEndOf="@id/sos_button"
+        app:layout_constraintStart_toStartOf="@id/sos_button"
+        app:layout_constraintTop_toTopOf="@id/sos_button" />
+
+    <View
+        android:id="@+id/pulse_view_3"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:background="@drawable/bg_ripple_glow"
+        android:alpha="0"
         app:layout_constraintBottom_toBottomOf="@id/sos_button"
         app:layout_constraintEnd_toEndOf="@id/sos_button"
         app:layout_constraintStart_toStartOf="@id/sos_button"
@@ -53,10 +74,12 @@
     <!-- SOS Button -->
     <FrameLayout
         android:id="@+id/sos_button"
-        android:layout_width="180dp"
-        android:layout_height="180dp"
+        android:layout_width="235dp"
+        android:layout_height="226dp"
         android:background="@drawable/bg_circle_red"
-        android:elevation="12dp"
+        android:elevation="16dp"
+        android:outlineAmbientShadowColor="@color/red_main"
+        android:outlineSpotShadowColor="@color/red_main"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -71,8 +94,8 @@
             android:orientation="vertical">
 
             <ImageView
-                android:layout_width="50dp"
-                android:layout_height="50dp"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
                 android:src="@drawable/ic_sos" />
 
             <TextView
@@ -81,7 +104,7 @@
                 android:text="sos"
                 android:textAllCaps="true"
                 android:textColor="@color/white"
-                android:textSize="22sp"
+                android:textSize="30sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </FrameLayout>
@@ -89,7 +112,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="48dp"
         android:text="Tap to report an emergency"
         android:textColor="@color/grey_text"
         android:textSize="16sp"

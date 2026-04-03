@@ -12,9 +12,6 @@ import androidx.fragment.app.Fragment;
 
 public class SelectTypeFragment extends Fragment {
 
-    public void setOnTypeSelectedListener(EmergencyFormActivity emergencyFormActivity) {
-    }
-
     public interface OnTypeSelectedListener {
         void onTypeSelected(String type);
     }
