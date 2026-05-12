@@ -1,10 +1,8 @@
 package com.example.coordinaresponder.models;
 
 import com.google.gson.annotations.SerializedName;
-import java.util.Date;
 
-public class EmergencyReport {
-    private String id;
+public class IncidentRequest {
     private String type;
     private String status;
     private double latitude;
@@ -12,16 +10,17 @@ public class EmergencyReport {
     private String address;
     @SerializedName("reported_by")
     private String reportedBy;
-    @SerializedName("reported_at")
-    private String reportedAt; // Using String for ISO8601 from Supabase
-    @SerializedName("resolved_at")
-    private String resolvedAt;
 
-    public EmergencyReport() {}
+    public IncidentRequest(String type, String status, double latitude, double longitude, String address, String reportedBy) {
+        this.type = type;
+        this.status = status;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.address = address;
+        this.reportedBy = reportedBy;
+    }
 
     // Getters and Setters
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
     public String getStatus() { return status; }
@@ -34,8 +33,4 @@ public class EmergencyReport {
     public void setAddress(String address) { this.address = address; }
     public String getReportedBy() { return reportedBy; }
     public void setReportedBy(String reportedBy) { this.reportedBy = reportedBy; }
-    public String getReportedAt() { return reportedAt; }
-    public void setReportedAt(String reportedAt) { this.reportedAt = reportedAt; }
-    public String getResolvedAt() { return resolvedAt; }
-    public void setResolvedAt(String resolvedAt) { this.resolvedAt = resolvedAt; }
 }

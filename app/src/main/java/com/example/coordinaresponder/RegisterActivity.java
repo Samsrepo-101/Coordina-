@@ -9,99 +9,99 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.coordinaresponder.models.User;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.example.coordinaresponder.models.SignupRequest;
+import com.example.coordinaresponder.models.SupabaseAuthResponse;
+import com.example.coordinaresponder.models.UserProfile;
+import com.example.coordinaresponder.network.SupabaseClient;
+import com.example.coordinaresponder.network.SupabaseService;
+import com.example.coordinaresponder.utils.HashUtils;
 
-import java.util.Random;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class RegisterActivity extends AppCompatActivity {
 
-    private EditText etUsername, etFullName, etEmail, etPassword, etAge, etPhone, etAddress;
+    private EditText etFullName, etEmail, etPassword, etPhone;
     private Button btnRegister;
-    private FirebaseAuth mAuth;
-    private FirebaseFirestore db;
+    private SupabaseService supabaseService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
 
-        mAuth = FirebaseAuth.getInstance();
-        db = FirebaseFirestore.getInstance();
+        supabaseService = SupabaseClient.getService();
 
-        etUsername = findViewById(R.id.et_reg_username);
         etFullName = findViewById(R.id.et_reg_full_name);
         etEmail = findViewById(R.id.et_reg_email);
         etPassword = findViewById(R.id.et_reg_password);
-        etAge = findViewById(R.id.et_reg_age);
         etPhone = findViewById(R.id.et_reg_phone);
-        etAddress = findViewById(R.id.et_reg_address);
         btnRegister = findViewById(R.id.btn_register);
 
         btnRegister.setOnClickListener(v -> registerUser());
 
-        findViewById(R.id.tv_go_to_login).setOnClickListener(v -> {
-            finish();
-        });
+        findViewById(R.id.tv_go_to_login).setOnClickListener(v -> finish());
     }
 
     private void registerUser() {
-        String username = etUsername.getText().toString().trim();
         String fullName = etFullName.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
-        String ageStr = etAge.getText().toString().trim();
         String phone = etPhone.getText().toString().trim();
-        String address = etAddress.getText().toString().trim();
 
-        if (TextUtils.isEmpty(username) || TextUtils.isEmpty(fullName) || TextUtils.isEmpty(email) ||
-                TextUtils.isEmpty(password) || TextUtils.isEmpty(ageStr) || TextUtils.isEmpty(phone) || TextUtils.isEmpty(address)) {
+        if (TextUtils.isEmpty(fullName) || TextUtils.isEmpty(email) ||
+                TextUtils.isEmpty(password) || TextUtils.isEmpty(phone)) {
             Toast.makeText(this, "All fields are required", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        long age;
-        try {
-            age = Long.parseLong(ageStr);
-        } catch (NumberFormatException e) {
-            Toast.makeText(this, "Invalid age", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        // 1. Step A: Supabase Auth signup
+        SignupRequest signupRequest = new SignupRequest(email, password);
 
-        String verificationCode = String.valueOf(100000 + new Random().nextInt(900000));
+        supabaseService.signUp(Config.SUPABASE_ANON_KEY, signupRequest).enqueue(new Callback<SupabaseAuthResponse>() {
+            @Override
+            public void onResponse(Call<SupabaseAuthResponse> call, Response<SupabaseAuthResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    String userId = response.body().getUser().getId();
+                    String accessToken = "Bearer " + response.body().getAccessToken();
 
-        mAuth.createUserWithEmailAndPassword(email, password)
-                .addOnCompleteListener(this, task -> {
-                    if (task.isSuccessful()) {
-                        String userId = mAuth.getCurrentUser().getUid();
-                        
-                        User newUser = new User(
-                                username,
-                                email,
-                                password,
-                                fullName,
-                                age,
-                                address,
-                                phone,
-                                verificationCode
-                        );
+                    // 2. Step B: Insert into public.users with hashed password
+                    String passwordHash = HashUtils.sha256(password);
+                    
+                    // ROLE: Using "user" for the User App (Incident Reporter)
+                    UserProfile profile = new UserProfile(userId, fullName, email, "user", passwordHash);
+                    profile.setPhone(phone);
 
-                        db.collection("users").document(userId)
-                                .set(newUser)
-                                .addOnSuccessListener(aVoid -> {
-                                    Toast.makeText(RegisterActivity.this, "Registration Successful", Toast.LENGTH_SHORT).show();
-                                    startActivity(new Intent(RegisterActivity.this, MainActivity.class));
-                                    finishAffinity();
-                                })
-                                .addOnFailureListener(e -> {
-                                    Toast.makeText(RegisterActivity.this, "Failed to save user data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                                });
+                    supabaseService.createUserProfile(Config.SUPABASE_ANON_KEY, accessToken, profile).enqueue(new Callback<Void>() {
+                        @Override
+                        public void onResponse(Call<Void> call, Response<Void> profileResponse) {
+                            if (profileResponse.isSuccessful()) {
+                                Toast.makeText(RegisterActivity.this, "Registration Successful! Please login.", Toast.LENGTH_LONG).show();
+                                // FIX: Redirect to Login screen, no auto-login
+                                Intent intent = new Intent(RegisterActivity.this, LoginActivity.class);
+                                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                                startActivity(intent);
+                                finish();
+                            } else {
+                                Toast.makeText(RegisterActivity.this, "Failed to create profile: " + profileResponse.code(), Toast.LENGTH_SHORT).show();
+                            }
+                        }
 
-                    } else {
-                        Toast.makeText(RegisterActivity.this, "Registration failed: " + task.getException().getMessage(),
-                                Toast.LENGTH_LONG).show();
-                    }
-                });
+                        @Override
+                        public void onFailure(Call<Void> call, Throwable t) {
+                            Toast.makeText(RegisterActivity.this, "Profile Creation Failed: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                } else {
+                    Toast.makeText(RegisterActivity.this, "Signup failed: " + response.message(), Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<SupabaseAuthResponse> call, Throwable t) {
+                Toast.makeText(RegisterActivity.this, "Signup failed: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 }

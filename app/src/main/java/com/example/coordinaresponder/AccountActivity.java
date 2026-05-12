@@ -1,6 +1,7 @@
 package com.example.coordinaresponder;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -12,21 +13,27 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.example.coordinaresponder.models.UserProfile;
+import com.example.coordinaresponder.network.SupabaseClient;
+import com.example.coordinaresponder.network.SupabaseService;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class AccountActivity extends AppCompatActivity {
 
-    private FirebaseAuth mAuth;
-    private FirebaseFirestore db;
+    private SupabaseService supabaseService;
     private EditText etName, etUsername, etPhone, etAge, etAddress;
     private TextView tvEmailTop, tvDetailEmail;
     private Button btnSaveChanges, btnLogout;
     private ImageView btnEditProfile;
     private boolean isEditMode = false;
+    private String token, userId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,8 +41,17 @@ public class AccountActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_account);
         
-        mAuth = FirebaseAuth.getInstance();
-        db = FirebaseFirestore.getInstance();
+        supabaseService = SupabaseClient.getService();
+
+        // Get session from SharedPreferences
+        SharedPreferences prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE);
+        token = prefs.getString("token", null);
+        userId = prefs.getString("user_id", null);
+
+        if (token == null || userId == null) {
+            goToLogin();
+            return;
+        }
 
         // Initialize Views
         etName = findViewById(R.id.profile_name);
@@ -57,11 +73,7 @@ public class AccountActivity extends AppCompatActivity {
         btnSaveChanges.setOnClickListener(v -> saveChanges());
 
         btnLogout.setOnClickListener(v -> {
-            mAuth.signOut();
-            Intent intent = new Intent(AccountActivity.this, LoginActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-            finish();
+            logout();
         });
 
         findViewById(R.id.nav_home).setOnClickListener(v -> {
@@ -73,6 +85,19 @@ public class AccountActivity extends AppCompatActivity {
             startActivity(new Intent(this, ReportActivity.class));
             finish();
         });
+    }
+
+    private void logout() {
+        SharedPreferences prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE);
+        prefs.edit().clear().apply();
+        goToLogin();
+    }
+
+    private void goToLogin() {
+        Intent intent = new Intent(AccountActivity.this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 
     private void toggleEditMode(boolean enable) {
@@ -94,68 +119,55 @@ public class AccountActivity extends AppCompatActivity {
     }
 
     private void saveChanges() {
-        if (mAuth.getCurrentUser() == null) return;
-
         String name = etName.getText().toString().trim();
-        String username = etUsername.getText().toString().trim();
         String phone = etPhone.getText().toString().trim();
-        String ageStr = etAge.getText().toString().trim();
-        String address = etAddress.getText().toString().trim();
-
-        if (name.isEmpty() || username.isEmpty()) {
-            Toast.makeText(this, "Name and Username cannot be empty", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("fullName", name);
-        updates.put("username", username);
-        updates.put("phoneNumber", phone);
-        updates.put("address", address);
+        // Note: The schema uses 'phone' and 'full_name'
         
-        try {
-            if (!ageStr.isEmpty()) {
-                updates.put("age", Long.parseLong(ageStr));
-            }
-        } catch (NumberFormatException e) {
-            Toast.makeText(this, "Invalid age format", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("full_name", name);
+        updates.put("phone", phone);
+        // Add more fields if they exist in your public.users table
 
-        String userId = mAuth.getCurrentUser().getUid();
-        db.collection("users").document(userId).update(updates)
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(AccountActivity.this, "Profile Updated Successfully", Toast.LENGTH_SHORT).show();
-                    toggleEditMode(false);
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(AccountActivity.this, "Update Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        supabaseService.updateUserProfile(Config.SUPABASE_ANON_KEY, token, "eq." + userId, updates)
+                .enqueue(new Callback<Void>() {
+                    @Override
+                    public void onResponse(Call<Void> call, Response<Void> response) {
+                        if (response.isSuccessful()) {
+                            Toast.makeText(AccountActivity.this, "Profile Updated Successfully", Toast.LENGTH_SHORT).show();
+                            toggleEditMode(false);
+                            // Update local name if changed
+                            getSharedPreferences("AppPrefs", MODE_PRIVATE).edit().putString("user_name", name).apply();
+                        } else {
+                            Toast.makeText(AccountActivity.this, "Update Failed: " + response.code(), Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<Void> call, Throwable t) {
+                        Toast.makeText(AccountActivity.this, "Network Error", Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
     private void loadUserData() {
-        if (mAuth.getCurrentUser() != null) {
-            String userId = mAuth.getCurrentUser().getUid();
-            String email = mAuth.getCurrentUser().getEmail();
-            
-            tvEmailTop.setText(email);
-            tvDetailEmail.setText(email);
-
-            db.collection("users").document(userId).get()
-                    .addOnSuccessListener(doc -> {
-                        if (doc.exists()) {
-                            etName.setText(doc.getString("fullName"));
-                            etUsername.setText(doc.getString("username"));
-                            etPhone.setText(doc.getString("phoneNumber"));
-                            etAddress.setText(doc.getString("address"));
-                            
-                            Long age = doc.getLong("age");
-                            if (age != null) etAge.setText(String.valueOf(age));
+        supabaseService.getUserProfile(Config.SUPABASE_ANON_KEY, token, "eq." + userId)
+                .enqueue(new Callback<List<UserProfile>>() {
+                    @Override
+                    public void onResponse(Call<List<UserProfile>> call, Response<List<UserProfile>> response) {
+                        if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
+                            UserProfile profile = response.body().get(0);
+                            etName.setText(profile.getFullName());
+                            tvEmailTop.setText(profile.getEmail());
+                            tvDetailEmail.setText(profile.getEmail());
+                            etPhone.setText(profile.getPhone());
+                            // Add other fields as necessary based on schema
                         }
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(this, "Error loading profile", Toast.LENGTH_SHORT).show();
-                    });
-        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<List<UserProfile>> call, Throwable t) {
+                        Toast.makeText(AccountActivity.this, "Error loading profile", Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 }

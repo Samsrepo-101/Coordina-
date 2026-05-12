@@ -1,57 +1,32 @@
 package com.example.coordinaresponder;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.net.Uri;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FieldValue;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
+import com.example.coordinaresponder.models.IncidentRequest;
+import com.example.coordinaresponder.network.SupabaseClient;
+import com.example.coordinaresponder.network.SupabaseService;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class FillDetailsFragment extends Fragment {
 
     private String emergencyType;
-    private FirebaseFirestore db;
-    private FirebaseAuth mAuth;
-    private FirebaseStorage storage;
-    
     private EditText etLocation, etDetails;
-    private ImageView ivPreview;
-    private LinearLayout layoutAttachHint;
-    private Uri imageUri;
-    
-    private final ActivityResultLauncher<Intent> pickImageLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(),
-            result -> {
-                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                    imageUri = result.getData().getData();
-                    ivPreview.setImageURI(imageUri);
-                    ivPreview.setVisibility(View.VISIBLE);
-                    layoutAttachHint.setVisibility(View.GONE);
-                }
-            }
-    );
+    private SupabaseService supabaseService;
 
     public static FillDetailsFragment newInstance(String type) {
         FillDetailsFragment fragment = new FillDetailsFragment();
@@ -67,9 +42,7 @@ public class FillDetailsFragment extends Fragment {
         if (getArguments() != null) {
             emergencyType = getArguments().getString("emergency_type");
         }
-        db = FirebaseFirestore.getInstance();
-        mAuth = FirebaseAuth.getInstance();
-        storage = FirebaseStorage.getInstance();
+        supabaseService = SupabaseClient.getService();
     }
 
     @Nullable
@@ -79,8 +52,6 @@ public class FillDetailsFragment extends Fragment {
 
         etLocation = view.findViewById(R.id.et_location);
         etDetails = view.findViewById(R.id.et_details);
-        ivPreview = view.findViewById(R.id.iv_preview);
-        layoutAttachHint = view.findViewById(R.id.layout_attach_hint);
         
         TextView title = view.findViewById(R.id.selected_type_title);
         if (emergencyType != null) {
@@ -88,72 +59,63 @@ public class FillDetailsFragment extends Fragment {
         }
 
         view.findViewById(R.id.btn_back_details).setOnClickListener(v -> {
-            if (getFragmentManager() != null) {
-                getFragmentManager().popBackStack();
+            if (getParentFragmentManager() != null) {
+                getParentFragmentManager().popBackStack();
             }
         });
 
+        // Photo attachment is skipped in this Supabase REST implementation for simplicity, 
+        // as it requires multi-part upload to Supabase Storage.
         view.findViewById(R.id.btn_attach_photo).setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-            intent.setType("image/*");
-            pickImageLauncher.launch(intent);
+            Toast.makeText(getContext(), "Photo upload coming soon", Toast.LENGTH_SHORT).show();
         });
 
-        view.findViewById(R.id.btn_send_alert).setOnClickListener(v -> {
-            if (imageUri != null) {
-                uploadImageAndSendReport();
-            } else {
-                sendEmergencyReport("");
-            }
-        });
+        view.findViewById(R.id.btn_send_alert).setOnClickListener(v -> sendEmergencyReport());
 
         return view;
     }
 
-    private void uploadImageAndSendReport() {
-        String fileName = UUID.randomUUID().toString();
-        StorageReference ref = storage.getReference().child("emergency_photos/" + fileName);
-
-        Toast.makeText(getContext(), "Uploading photo...", Toast.LENGTH_SHORT).show();
-        
-        ref.putFile(imageUri)
-                .addOnSuccessListener(taskSnapshot -> ref.getDownloadUrl().addOnSuccessListener(uri -> {
-                    sendEmergencyReport(uri.toString());
-                }))
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Upload failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    sendEmergencyReport(""); // Send without image if upload fails
-                });
-    }
-
-    private void sendEmergencyReport(String photoUrl) {
+    private void sendEmergencyReport() {
         String location = etLocation.getText().toString().trim();
         String details = etDetails.getText().toString().trim();
         
-        if (mAuth.getCurrentUser() == null) {
+        SharedPreferences prefs = getActivity().getSharedPreferences("AppPrefs", Context.MODE_PRIVATE);
+        String token = prefs.getString("token", null);
+        String userId = prefs.getString("user_id", null);
+
+        if (token == null || userId == null) {
             Toast.makeText(getContext(), "Please login first", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Map<String, Object> report = new HashMap<>();
-        report.put("user_id", mAuth.getCurrentUser().getUid());
-        report.put("emergency_type", emergencyType);
-        report.put("location", location);
-        report.put("details", details);
-        report.put("photo_url", photoUrl);
-        report.put("report_time", FieldValue.serverTimestamp());
-        report.put("status", "Reported");
+        // Mapping UI fields to public.incidents schema
+        // address = location, type = emergencyType, reported_by = userId
+        IncidentRequest incident = new IncidentRequest(
+                emergencyType,
+                "open",
+                0.0, // Latitude placeholder
+                0.0, // Longitude placeholder
+                location,
+                userId
+        );
 
-        db.collection("reports")
-                .add(report)
-                .addOnSuccessListener(documentReference -> {
+        supabaseService.createIncident(Config.SUPABASE_ANON_KEY, token, incident).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
                     Toast.makeText(getContext(), "Alert Sent Successfully!", Toast.LENGTH_LONG).show();
                     if (getActivity() != null) {
                         getActivity().finish();
                     }
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Error saving report: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
+                } else {
+                    Toast.makeText(getContext(), "Error sending alert: " + response.code(), Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 }
